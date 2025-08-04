@@ -729,6 +729,29 @@ const routes = {
                 res.end(JSON.stringify({ history: rows || [] }));
             });
         });
+    },
+    
+    '/api/system/about': (req, res) => {
+        authenticateRequest(req, (isAuthenticated) => {
+            if (!isAuthenticated) {
+                res.writeHead(401);
+                res.end(JSON.stringify({ error: 'Unauthorized' }));
+                return;
+            }
+            
+            const aboutInfo = {
+                hostname: os.hostname(),
+                version: '1.0.0',
+                website: 'www.epithos.com',
+                support: {
+                    line: '@epithos',
+                    email: 'global@epithos.com'
+                }
+            };
+            
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(aboutInfo));
+        });
     }
 };
 
@@ -857,7 +880,7 @@ const server = http.createServer((req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 80;
 server.listen(PORT, () => {
     console.log(`IoT Gateway server running on port ${PORT}`);
     logSystemEvent('Server started', null, 'info', `Port: ${PORT}`);

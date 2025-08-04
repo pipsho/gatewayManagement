@@ -74,6 +74,7 @@
                         <button class="nav-btn" data-section="zerotier">ZeroTier</button>
                         <button class="nav-btn" data-section="diagnostics">Diagnostics</button>
                         <button class="nav-btn" data-section="settings">Settings</button>
+                        <button class="nav-btn" data-section="about">About</button>
                     </nav>
                     <div class="user-menu">
                         <span id="username-display">admin</span>
@@ -139,16 +140,16 @@
                         </div>
 
                         <div class="card">
-                            <h3>Recent Activity</h3>
-                            <div id="recent-logs" class="logs-list">
-                                <div class="log-entry">Loading...</div>
+                            <h3>Network Connections</h3>
+                            <div id="network-connections" class="interfaces-list">
+                                <div class="loading">Loading network interfaces...</div>
                             </div>
                         </div>
                         
                         <div class="card">
-                            <h3>Network Connections</h3>
-                            <div id="network-connections" class="interfaces-list">
-                                <div class="loading">Loading network interfaces...</div>
+                            <h3>Recent Activity</h3>
+                            <div id="recent-logs" class="logs-list">
+                                <div class="log-entry">Loading...</div>
                             </div>
                         </div>
                     </div>
@@ -375,6 +376,44 @@
                                             <button id="reboot-btn" class="btn btn-danger">Reboot System</button>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- About Section -->
+                <section id="about-section" class="section">
+                    <h2>About</h2>
+                    <div class="grid">
+                        <div class="card">
+                            <h3>Device Information</h3>
+                            <div class="metric-grid">
+                                <div class="metric">
+                                    <span class="label">Model No. (Hostname)</span>
+                                    <span id="about-hostname" class="value">-</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="label">Webapp Version</span>
+                                    <span id="about-version" class="value">-</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <h3>Support Information</h3>
+                            <div class="metric-grid">
+                                <div class="metric">
+                                    <span class="label">Support Site</span>
+                                    <span class="value"><a href="https://support.epithos.com" target="_blank" rel="noopener noreferrer">support.epithos.com</a></span>
+                                </div>
+                                <div class="metric">
+                                    <span class="label">Line@</span>
+                                    <span class="value">@epithos</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="label">Email</span>
+                                    <span class="value"><a href="mailto:global@epithos.com">global@epithos.com</a></span>
                                 </div>
                             </div>
                         </div>

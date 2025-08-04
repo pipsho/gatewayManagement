@@ -648,6 +648,7 @@ function loadAllData() {
     loadNetworkInterfaces();
     loadZeroTierNetworks();
     loadNetworkConnections();
+    loadAboutInfo();
   
     
     // Initialize Configure Interface visibility based on active tab
@@ -663,6 +664,19 @@ function loadAllData() {
                 configureContainer.style.display = 'none';
             }
         }
+    }
+}
+
+async function loadAboutInfo() {
+    try {
+        const aboutInfo = await apiCall('/system/about');
+        
+        document.getElementById('about-hostname').textContent = aboutInfo.hostname || '-';
+        document.getElementById('about-version').textContent = aboutInfo.version || '-';
+    } catch (error) {
+        console.error('Failed to load about info:', error);
+        document.getElementById('about-hostname').textContent = 'Error loading';
+        document.getElementById('about-version').textContent = 'Error loading';
     }
 }
 
