@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gateway Management Platform - Login</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+    <div id="app">
+        <div id="login-screen" class="screen active">
+            <div class="login-container">
+                <div class="logo">
+                    <img src="epithos-logo.png" alt="Epithos Logo" width="300" height="90" style="max-width: 100%; height: auto;">
+                    <p>Gateway Management Platform</p>
+                </div>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Sign In</button>
+                </form>
+                <div id="login-error" class="error-message"></div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="copyright">
+        <p>&copy; <a href="https://www.epithos.com" target="_blank" rel="noopener noreferrer">Epithos Co., Ltd</a>. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // Simple login functionality for the standalone login page
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginForm = document.getElementById('login-form');
+            const loginError = document.getElementById('login-error');
+
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                
+                try {
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ username, password }),
+                        credentials: 'include'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        // Redirect to dashboard on successful login
+                        window.location.href = '/';
+                    } else {
+                        loginError.textContent = data.error || 'Login failed';
+                        loginError.style.display = 'block';
+                    }
+                } catch (error) {
+                    loginError.textContent = 'Network error. Please try again.';
+                    loginError.style.display = 'block';
+                }
+            });
+
+            // Clear error on input
+            document.getElementById('username').addEventListener('input', () => {
+                loginError.style.display = 'none';
+            });
+            document.getElementById('password').addEventListener('input', () => {
+                loginError.style.display = 'none';
+            });
+        });
+    </script>
+</body>
+</html>

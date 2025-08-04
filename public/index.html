@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gateway Management Platform</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <style>
+        .network-tabs {
+            margin-bottom: 2rem;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tab-btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            background: #f8f9fa;
+            color: #6c757d;
+            cursor: pointer;
+            border-radius: 0.5rem 0.5rem 0 0;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .tab-btn:hover {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .tab-btn.active {
+            background: #007bff;
+            color: white;
+            border-bottom: 2px solid #007bff;
+        }
+        
+        .tab-content {
+            position: relative;
+        }
+        
+        .tab-panel {
+            display: none;
+        }
+        
+        .tab-panel.active {
+            display: block;
+        }
+        
+        .interfaces-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Main Dashboard -->
+        <div id="dashboard-screen" class="screen active">
+            <header class="header">
+                <div class="header-content">
+                    <div class="logo">
+                        <img src="epithos-logo.png" alt="Epithos Logo" width="150" height="45" style="max-width: 100%; height: auto;">
+                    </div>
+                    <nav class="nav">
+                        <button class="nav-btn active" data-section="overview">Overview</button>
+                        <button class="nav-btn" data-section="network">Network</button>
+                        <button class="nav-btn" data-section="zerotier">ZeroTier</button>
+                        <button class="nav-btn" data-section="diagnostics">Diagnostics</button>
+                        <button class="nav-btn" data-section="settings">Settings</button>
+                    </nav>
+                    <div class="user-menu">
+                        <span id="username-display">admin</span>
+                        <button id="logout-btn" class="btn btn-ghost">Logout</button>
+                    </div>
+                </div>
+            </header>
+
+            <main class="main">
+                <!-- Overview Section -->
+                <section id="overview-section" class="section active">
+                    <h2>System Overview</h2>
+                    <div class="grid">
+                        <div class="card">
+                            <h3>System Status</h3>
+                            <div class="metric-grid">
+                                <div class="metric">
+                                    <span class="label">Hostname</span>
+                                    <span id="hostname" class="value">-</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="label">Uptime</span>
+                                    <span id="uptime" class="value">-</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="label">Platform</span>
+                                    <span id="platform" class="value">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h3>Resource Usage</h3>
+                            <div class="resource-metrics">
+                                <div class="resource-item">
+                                    <div class="resource-info">
+                                        <span>CPU Usage</span>
+                                        <span id="cpu-usage">0%</span>
+                                    </div>
+                                    <div class="progress-bar">
+                                        <div id="cpu-bar" class="progress-fill"></div>
+                                    </div>
+                                </div>
+                                <div class="resource-item">
+                                    <div class="resource-info">
+                                        <span>Memory Usage</span>
+                                        <span id="memory-usage">0%</span>
+                                    </div>
+                                    <div class="progress-bar">
+                                        <div id="memory-bar" class="progress-fill"></div>
+                                    </div>
+                                </div>
+                                <div class="resource-item">
+                                    <div class="resource-info">
+                                        <span>Storage Usage</span>
+                                        <span id="storage-usage">0%</span>
+                                    </div>
+                                    <div class="progress-bar">
+                                        <div id="storage-bar" class="progress-fill"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h3>Recent Activity</h3>
+                            <div id="recent-logs" class="logs-list">
+                                <div class="log-entry">Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <h3>Network Connections</h3>
+                            <div id="network-connections" class="interfaces-list">
+                                <div class="loading">Loading network interfaces...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+
+                </section>
+
+                <!-- Network Section -->
+                <section id="network-section" class="section">
+                    <h2>Network Management</h2>
+                    <div class="network-tabs">
+                        <div class="tab-buttons">
+                            <button class="tab-btn active" data-tab="lan">LAN</button>
+                            <button class="tab-btn" data-tab="cellular">Cellular</button>
+                            <button class="tab-btn" data-tab="wifi">WIFI</button>
+                        </div>
+                        
+                        <div class="tab-content">
+                            <div id="lan-tab" class="tab-panel active">
+                                <div class="grid">
+                                    <div class="card">
+                                        <h3>LAN Interfaces</h3>
+                                        <div id="lan-interfaces" class="interfaces-list">
+                                            <div class="loading">Loading LAN interfaces...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="cellular-tab" class="tab-panel">
+                                <div class="grid">
+                                    <div class="card">
+                                        <h3>Cellular Interfaces</h3>
+                                        <div id="cellular-interfaces" class="interfaces-list">
+                                            <div class="loading">Loading Cellular interfaces...</div>
+                                        </div>
+                                        <div class="info-note" style="margin-top: 1rem; padding: 1rem; background: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 4px;">
+                                            <strong>Note:</strong> Cellular interfaces are typically managed automatically by cellular modems and do not require manual configuration.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="wifi-tab" class="tab-panel">
+                                <div class="grid">
+                                    <div class="card">
+                                        <h3>WIFI Interfaces</h3>
+                                        <div id="wifi-interfaces" class="interfaces-list">
+                                            <div class="loading">Loading WIFI interfaces...</div>
+                                        </div>
+                                    </div>
+                        </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid" id="configure-interface-container" data-visible-tabs="lan,wifi">
+                        <div class="card">
+                            <h3>Configure Interface</h3>
+                            <form id="interface-config-form">
+                                <div class="form-group">
+                                    <label for="interface-select">Interface</label>
+                                    <select id="interface-select" required>
+                                        <option value="">Select interface...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="config-type">Configuration Type</label>
+                                    <select id="config-type" required>
+                                        <option value="dhcp">DHCP</option>
+                                        <option value="static">Static IP</option>
+                                    </select>
+                                </div>
+                                <div id="static-config" class="static-config">
+                                    <div class="form-group">
+                                        <label for="ip-address">IP Address</label>
+                                        <input type="text" id="ip-address" placeholder="192.168.1.100">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="subnet-mask">Subnet Mask</label>
+                                        <input type="text" id="subnet-mask" placeholder="255.255.255.0">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="gateway">Gateway</label>
+                                        <input type="text" id="gateway" placeholder="192.168.1.1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="dns-servers">DNS Servers</label>
+                                        <input type="text" id="dns-servers" placeholder="8.8.8.8,8.8.4.4">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="interface-enabled" checked>
+                                        Enable Interface
+                                    </label>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Save Configuration</button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ZeroTier Section -->
+                <section id="zerotier-section" class="section">
+                    <h2>ZeroTier Networks</h2>
+                    <div class="grid">
+                        <div class="card">
+                            <h3>Current Networks</h3>
+                            <div id="zerotier-networks" class="networks-list">
+                                <div class="loading">Loading networks...</div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h3>Join Network</h3>
+                            <form id="join-network-form">
+                                <div class="form-group">
+                                    <label for="network-id">Network ID</label>
+                                    <input type="text" id="network-id" placeholder="e.g., 8056c2e21c000001" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Join Network</button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Diagnostics Section -->
+                <section id="diagnostics-section" class="section">
+                    <h2>Network Diagnostics</h2>
+                    <div class="grid">
+                        <div class="card">
+                            <h3>Ping Test</h3>
+                            <form id="ping-form">
+                                <div class="form-group">
+                                    <label for="ping-target">Target Address</label>
+                                    <input type="text" id="ping-target" placeholder="8.8.8.8 or google.com" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="ping-interface">Interface (optional)</label>
+                                    <select id="ping-interface">
+                                        <option value="">Auto</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="ping-count">Count</label>
+                                    <input type="number" id="ping-count" value="4" min="1" max="10">
+                                </div>
+                                <button type="submit" class="btn btn-primary">Start Ping</button>
+                            </form>
+                        </div>
+
+                        <div class="card">
+                            <h3>Ping Results</h3>
+                            <div id="ping-results" class="ping-results">
+                                <div class="placeholder">Run a ping test to see results</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Settings Section -->
+                <section id="settings-section" class="section">
+                    <h2>System Settings</h2>
+                    <div class="network-tabs">
+                        <div class="tab-buttons">
+                            <button class="tab-btn active" data-tab="password">Password</button>
+                            <button class="tab-btn" data-tab="firmware">Firmware</button>
+                            <button class="tab-btn" data-tab="system">System Control</button>
+                        </div>
+                        
+                        <div class="tab-content">
+                            <div id="password-tab" class="tab-panel active">
+                                <div class="grid">
+                                    <div class="card">
+                                        <h3>Change Password</h3>
+                                        <form id="password-form">
+                                            <div class="form-group">
+                                                <label for="current-password">Current Password</label>
+                                                <input type="password" id="current-password" required>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="new-password">New Password</label>
+                                                <input type="password" id="new-password" required minlength="6">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="confirm-password">Confirm New Password</label>
+                                                <input type="password" id="confirm-password" required minlength="6">
+                                            </div>
+                                            <button type="submit" class="btn btn-primary">Change Password</button>
+                                        </form>
+                                        <div id="password-message" class="message"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="firmware-tab" class="tab-panel">
+                                <div class="grid">
+                                    <div class="card">
+                                        <h3>Manual Firmware Update</h3>
+                                        <form id="firmware-form">
+                                            <div class="form-group">
+                                        <label for="firmware-file">Select Firmware File</label>
+                                        <input type="file" id="firmware-file" accept=".bin,.img,.zip" required>
+                                    </div>
+                                    <button type="submit" class="btn">Upload & Update</button>
+                                </form>
+                                
+                                <div id="update-progress" class="update-progress" style="display: none;">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="update-bar"></div>
+                                    </div>
+                                    <div class="progress-text" id="update-status">Preparing update...</div>
+                                </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="system-tab" class="tab-panel">
+                                <div class="grid">
+                                    <div class="card">
+                                        <h3>System Control</h3>
+                                        <div class="system-controls">
+                                            <button id="reboot-btn" class="btn btn-danger">Reboot System</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+    
+    <footer class="copyright">
+        <p>&copy; <a href="https://www.epithos.com" target="_blank" rel="noopener noreferrer">Epithos Co., Ltd</a>. All rights reserved.</p>
+    </footer>
+</body>
+</html>
