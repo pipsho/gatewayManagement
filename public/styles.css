@@ -351,10 +351,51 @@ input:focus, select:focus {
     background: var(--background);
     border-radius: 0.375rem;
     border-left: 4px solid var(--primary);
+    transition: all 0.2s ease-in-out;
 }
 
 .interface-item.down {
     border-left-color: var(--danger);
+}
+
+.interface-item.clickable {
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.interface-item.clickable:hover {
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    transform: translateY(-1px);
+}
+
+.interface-item.selected {
+    background: var(--surface);
+    border: 1px solid var(--primary);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-1px);
+}
+
+.selected-interface {
+    background: var(--surface);
+    border: 1px solid var(--primary);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.selected-interface .interface-header {
+    margin-bottom: 0.5rem;
+}
+
+.selected-interface .interface-name {
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.selected-interface .interface-details {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
 }
 
 .interface-header {

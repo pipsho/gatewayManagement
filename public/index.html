@@ -210,13 +210,20 @@
                     <div class="grid" id="configure-interface-container" data-visible-tabs="lan,wifi">
                         <div class="card">
                             <h3>Configure Interface</h3>
-                            <form id="interface-config-form">
-                                <div class="form-group">
-                                    <label for="interface-select">Interface</label>
-                                    <select id="interface-select" required>
-                                        <option value="">Select interface...</option>
-                                    </select>
+                            <div id="selected-interface-info" class="selected-interface" style="display: none;">
+                                <div class="interface-header">
+                                    <span class="interface-name"></span>
+                                    <span class="interface-status"></span>
                                 </div>
+                                <div class="interface-details">
+                                    <div class="interface-type"></div>
+                                    <div class="interface-mac"></div>
+                                </div>
+                            </div>
+                            <div id="no-interface-selected" class="placeholder">
+                                Click on an interface above to configure it
+                            </div>
+                            <form id="interface-config-form" style="display: none;">
                                 <div class="form-group">
                                     <label for="config-type">Configuration Type</label>
                                     <select id="config-type" required>

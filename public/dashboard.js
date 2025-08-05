@@ -283,25 +283,8 @@ async function loadNetworkInterfaces() {
         updateTabInterfaces('cellular-interfaces', cellularInterfaces);
         updateTabInterfaces('wifi-interfaces', wifiInterfaces);
         
-        // Update interface select dropdowns, excluding WWAN from configuration
-        const select = document.getElementById('interface-select');
+        // Update ping interface dropdown
         const pingInterface = document.getElementById('ping-interface');
-        
-        // For configuration dropdown, exclude Cellular interfaces
-        select.innerHTML = '<option value="">Select interface...</option>';
-        interfaces.filter(iface => 
-            !iface.type.toLowerCase().includes('wwan') &&
-            !iface.type.toLowerCase().includes('cellular') &&
-            !iface.name.toLowerCase().includes('wwan') &&
-            !iface.name.toLowerCase().includes('cellular') &&
-            !iface.name.toLowerCase().includes('usb') &&
-            !iface.name.toLowerCase().includes('cdc')
-        ).forEach(iface => {
-            const option = document.createElement('option');
-            option.value = iface.name;
-            option.textContent = `${iface.name} (${iface.type})`;
-            select.appendChild(option);
-        });
         
         // For ping dropdown, include all interfaces
         pingInterface.innerHTML = '<option value="">Auto</option>';
@@ -311,6 +294,18 @@ async function loadNetworkInterfaces() {
             option.textContent = `${iface.name} (${iface.type})`;
             pingInterface.appendChild(option);
         });
+        
+        // Reset interface selection when interfaces are reloaded
+        selectedInterface = null;
+        const infoContainer = document.getElementById('selected-interface-info');
+        const noSelectionMsg = document.getElementById('no-interface-selected');
+        const configForm = document.getElementById('interface-config-form');
+        
+        if (infoContainer && noSelectionMsg && configForm) {
+            infoContainer.style.display = 'none';
+            noSelectionMsg.style.display = 'block';
+            configForm.style.display = 'none';
+        }
     } catch (error) {
         console.error('Failed to load network interfaces:', error);
     }
@@ -327,7 +322,8 @@ function updateTabInterfaces(containerId, interfaces) {
     container.innerHTML = '';
     interfaces.forEach(iface => {
         const div = document.createElement('div');
-        div.className = `interface-item ${iface.status}`;
+        div.className = `interface-item ${iface.status} clickable`;
+        div.dataset.interfaceName = iface.name;
         div.innerHTML = `
             <div class="interface-header">
                 <span class="interface-name">${iface.name}</span>
@@ -343,8 +339,59 @@ function updateTabInterfaces(containerId, interfaces) {
                 </div>
             </div>
         `;
+        
+        // Add click handler for interface selection
+        div.addEventListener('click', () => selectInterface(iface));
+        
         container.appendChild(div);
     });
+}
+
+// Global variable to store selected interface
+let selectedInterface = null;
+
+function selectInterface(iface) {
+    selectedInterface = iface;
+    
+    // Remove selection from all interface items
+    document.querySelectorAll('.interface-item').forEach(item => {
+        item.classList.remove('selected');
+    });
+    
+    // Add selection to clicked interface
+    const clickedItem = document.querySelector(`[data-interface-name="${iface.name}"]`);
+    if (clickedItem) {
+        clickedItem.classList.add('selected');
+    }
+    
+    // Update selected interface info
+    const infoContainer = document.getElementById('selected-interface-info');
+    const noSelectionMsg = document.getElementById('no-interface-selected');
+    const configForm = document.getElementById('interface-config-form');
+    
+    if (infoContainer && noSelectionMsg && configForm) {
+        // Show selected interface info
+        infoContainer.style.display = 'block';
+        infoContainer.querySelector('.interface-name').textContent = iface.name;
+        infoContainer.querySelector('.interface-status').textContent = iface.status;
+        infoContainer.querySelector('.interface-status').className = `interface-status ${iface.status}`;
+        infoContainer.querySelector('.interface-type').textContent = `Type: ${iface.type}`;
+        infoContainer.querySelector('.interface-mac').textContent = `MAC: ${iface.mac}`;
+        
+        // Hide no selection message and show config form
+        noSelectionMsg.style.display = 'none';
+        configForm.style.display = 'block';
+        
+        // Reset form to default values
+        document.getElementById('config-type').value = 'dhcp';
+        document.getElementById('interface-enabled').checked = iface.status === 'up';
+        
+        // Hide static config initially
+        const staticConfig = document.getElementById('static-config');
+        if (staticConfig) {
+            staticConfig.style.display = 'none';
+        }
+    }
 }
 
 async function loadZeroTierNetworks() {
@@ -429,8 +476,13 @@ document.getElementById('config-type').addEventListener('change', (e) => {
 document.getElementById('interface-config-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     
+    if (!selectedInterface) {
+        showError('interface-config-form', 'Please select an interface first');
+        return;
+    }
+    
     const config = {
-        interface_name: document.getElementById('interface-select').value,
+        interface_name: selectedInterface.name,
         config_type: document.getElementById('config-type').value,
         ip_address: document.getElementById('ip-address').value || null,
         subnet_mask: document.getElementById('subnet-mask').value || null,
