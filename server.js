@@ -3,82 +3,79 @@ const url = require('url');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const { exec, execSync } = require('child_process');
 const os = require('os');
 
 // Database setup
-const db = new sqlite3.Database('./gateway.db');
+const db = new Database('./gateway.db');
 
 // Initialize database
-db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-    
-    db.run(`CREATE TABLE IF NOT EXISTS sessions (
-        id TEXT PRIMARY KEY,
-        user_id INTEGER,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        expires_at DATETIME,
-        FOREIGN KEY(user_id) REFERENCES users(id)
-    )`);
-    
-    db.run(`CREATE TABLE IF NOT EXISTS network_configs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        interface_name TEXT NOT NULL,
-        config_type TEXT NOT NULL,
-        ip_address TEXT,
-        subnet_mask TEXT,
-        gateway TEXT,
-        dns_servers TEXT,
-        enabled BOOLEAN DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-    
-    db.run(`CREATE TABLE IF NOT EXISTS system_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        action TEXT NOT NULL,
-        level TEXT DEFAULT 'info',
-        details TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(user_id) REFERENCES users(id)
-    )`);
-    
-    db.run(`CREATE TABLE IF NOT EXISTS firmware_updates (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        filename TEXT NOT NULL,
-        version TEXT NOT NULL,
-        status TEXT DEFAULT 'pending',
-        progress INTEGER DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        completed_at DATETIME
-    )`);
-    
-    db.run(`CREATE TABLE IF NOT EXISTS update_settings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        auto_update_enabled BOOLEAN DEFAULT 0,
-        update_schedule TEXT DEFAULT 'manual',
-        update_source TEXT DEFAULT 'manual',
-        custom_update_url TEXT,
-        auto_reboot_enabled BOOLEAN DEFAULT 1,
-        last_check DATETIME,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-    
-    // Create default admin user if none exists
-    db.get("SELECT COUNT(*) as count FROM users", (err, row) => {
-        if (row.count === 0) {
-            const defaultHash = crypto.createHash('sha256').update('admin123').digest('hex');
-            db.run("INSERT INTO users (username, password_hash) VALUES (?, ?)", ['admin', defaultHash]);
-        }
-    });
-});
+db.exec(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)`);
+
+db.exec(`CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+)`);
+
+db.exec(`CREATE TABLE IF NOT EXISTS network_configs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    interface_name TEXT NOT NULL,
+    config_type TEXT NOT NULL,
+    ip_address TEXT,
+    subnet_mask TEXT,
+    gateway TEXT,
+    dns_servers TEXT,
+    enabled BOOLEAN DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)`);
+
+db.exec(`CREATE TABLE IF NOT EXISTS system_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    action TEXT NOT NULL,
+    level TEXT DEFAULT 'info',
+    details TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+)`);
+
+db.exec(`CREATE TABLE IF NOT EXISTS firmware_updates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename TEXT NOT NULL,
+    version TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    progress INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    completed_at DATETIME
+)`);
+
+db.exec(`CREATE TABLE IF NOT EXISTS update_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    auto_update_enabled BOOLEAN DEFAULT 0,
+    update_schedule TEXT DEFAULT 'manual',
+    update_source TEXT DEFAULT 'manual',
+    custom_update_url TEXT,
+    auto_reboot_enabled BOOLEAN DEFAULT 1,
+    last_check DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)`);
+
+// Create default admin user if none exists
+const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get();
+if (userCount.count === 0) {
+    const defaultHash = crypto.createHash('sha256').update('admin123').digest('hex');
+    db.prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)").run('admin', defaultHash);
+}
 
 // Utility functions
 function generateSessionId() {
@@ -90,8 +87,7 @@ function hashPassword(password) {
 }
 
 function logSystemEvent(action, userId = null, level = 'info', details = '') {
-    db.run("INSERT INTO system_logs (user_id, action, level, details) VALUES (?, ?, ?, ?)", 
-           [userId, action, level, details]);
+    db.prepare("INSERT INTO system_logs (user_id, action, level, details) VALUES (?, ?, ?, ?)").run(userId, action, level, details);
 }
 
 function authenticateRequest(req, callback) {
@@ -103,14 +99,16 @@ function authenticateRequest(req, callback) {
     }
     
     const sessionId = sessionMatch[1];
-    db.get("SELECT user_id FROM sessions WHERE id = ? AND expires_at > datetime('now')", 
-           [sessionId], (err, row) => {
+    try {
+        const row = db.prepare("SELECT user_id FROM sessions WHERE id = ? AND expires_at > datetime('now')").get(sessionId);
         if (row) {
             callback(true, row.user_id);
         } else {
             callback(false, null);
         }
-    });
+    } catch (err) {
+        callback(false, null);
+    }
 }
 
 // API endpoints
@@ -119,17 +117,16 @@ const routes = {
         let body = '';
         req.on('data', chunk => body += chunk);
         req.on('end', () => {
-            const { username, password } = JSON.parse(body);
-            const hash = hashPassword(password);
-            
-            db.get("SELECT id FROM users WHERE username = ? AND password_hash = ?", 
-                   [username, hash], (err, row) => {
+            try {
+                const { username, password } = JSON.parse(body);
+                const hash = hashPassword(password);
+                
+                const row = db.prepare("SELECT id FROM users WHERE username = ? AND password_hash = ?").get(username, hash);
                 if (row) {
                     const sessionId = generateSessionId();
                     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
                     
-                    db.run("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)", 
-                           [sessionId, row.id, expiresAt]);
+                    db.prepare("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)").run(sessionId, row.id, expiresAt);
                     
                     logSystemEvent('User login', row.id);
                     
@@ -143,7 +140,10 @@ const routes = {
                     res.writeHead(401, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: 'Invalid credentials' }));
                 }
-            });
+            } catch (err) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Invalid request' }));
+            }
         });
     },
     
@@ -159,7 +159,7 @@ const routes = {
                 const cookies = req.headers.cookie || '';
                 const sessionMatch = cookies.match(/session=([^;]+)/);
                 if (sessionMatch) {
-                    db.run("DELETE FROM sessions WHERE id = ?", [sessionMatch[1]]);
+                    db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionMatch[1]);
                 }
                 logSystemEvent('User logout', userId);
                 res.writeHead(200, {
@@ -212,8 +212,9 @@ const routes = {
                         return;
                     }
                     
-                    db.get('SELECT password_hash FROM users WHERE id = ?', [userId], (err, row) => {
-                        if (err || !row) {
+                    try {
+                        const row = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(userId);
+                        if (!row) {
                             res.writeHead(500);
                             res.end(JSON.stringify({ error: 'User not found' }));
                             return;
@@ -229,17 +230,15 @@ const routes = {
                         
                         const newHash = crypto.createHash('sha256').update(newPassword).digest('hex');
                         
-                        db.run('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, userId], function(err) {
-                            if (err) {
-                                res.writeHead(500);
-                                res.end(JSON.stringify({ error: 'Failed to update password' }));
-                            } else {
-                                logSystemEvent('Password changed', userId, 'info');
-                                res.writeHead(200, { 'Content-Type': 'application/json' });
-                                res.end(JSON.stringify({ success: true, message: 'Password updated successfully' }));
-                            }
-                        });
-                    });
+                        db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, userId);
+                        
+                        logSystemEvent('Password changed', userId, 'info');
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ success: true, message: 'Password updated successfully' }));
+                    } catch (err) {
+                        res.writeHead(500);
+                        res.end(JSON.stringify({ error: 'Failed to update password' }));
+                    }
                 } catch (e) {
                     res.writeHead(400);
                     res.end(JSON.stringify({ error: 'Invalid JSON' }));
@@ -256,8 +255,9 @@ const routes = {
                 return;
             }
             
-            db.get('SELECT id, username, created_at FROM users WHERE id = ?', [userId], (err, user) => {
-                if (err || !user) {
+            try {
+                const user = db.prepare('SELECT id, username, created_at FROM users WHERE id = ?').get(userId);
+                if (!user) {
                     res.writeHead(404);
                     res.end(JSON.stringify({ error: 'User not found' }));
                     return;
@@ -269,7 +269,10 @@ const routes = {
                     username: user.username,
                     created_at: user.created_at
                 }));
-            });
+            } catch (err) {
+                res.writeHead(500);
+                res.end(JSON.stringify({ error: 'Database error' }));
+            }
         });
     },
     
@@ -368,9 +371,10 @@ const routes = {
                     
                     const interfaceInfo = {
                         name: interfaceName,
-                        type: interfaceName.startsWith('eth') ? 'ethernet' : 
-                              interfaceName.startsWith('wlan') ? 'wifi' : 
-                              interfaceName.startsWith('zt') ? 'zerotier' : 'unknown',
+                        type: interfaceName.startsWith('eth') || interfaceName.startsWith('feth') ? 'ethernet' : 
+                              interfaceName.startsWith('wlan') || interfaceName.startsWith('wifi') ? 'wifi' : 
+                              interfaceName.startsWith('zt') ? 'zerotier' : 
+                              interfaceName.startsWith('en') ? 'ethernet' : 'unknown',
                         mac: '',
                         status: 'down',
                         addresses: []
@@ -420,31 +424,34 @@ const routes = {
             }
             
             if (req.method === 'GET') {
-                db.all("SELECT * FROM network_configs", (err, rows) => {
+                try {
+                    const rows = db.prepare("SELECT * FROM network_configs").all();
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify(rows || []));
-                });
+                } catch (err) {
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Database error' }));
+                }
             } else if (req.method === 'POST') {
                 let body = '';
                 req.on('data', chunk => body += chunk);
                 req.on('end', () => {
                     const config = JSON.parse(body);
-                    db.run(`INSERT INTO network_configs 
-                           (interface_name, config_type, ip_address, subnet_mask, gateway, dns_servers, enabled) 
-                           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                           [config.interface_name, config.config_type, config.ip_address, 
-                            config.subnet_mask, config.gateway, config.dns_servers, config.enabled],
-                           function(err) {
-                        if (err) {
-                            res.writeHead(400, { 'Content-Type': 'application/json' });
-                            res.end(JSON.stringify({ error: 'Failed to save config' }));
-                        } else {
-                            logSystemEvent('Network config updated', null, 'info', 
-                                         `Interface: ${config.interface_name}`);
-                            res.writeHead(200, { 'Content-Type': 'application/json' });
-                            res.end(JSON.stringify({ id: this.lastID }));
-                        }
-                    });
+                    try {
+                        const stmt = db.prepare(`INSERT INTO network_configs 
+                               (interface_name, config_type, ip_address, subnet_mask, gateway, dns_servers, enabled) 
+                               VALUES (?, ?, ?, ?, ?, ?, ?)`);
+                        const result = stmt.run(config.interface_name, config.config_type, config.ip_address, 
+                                config.subnet_mask, config.gateway, config.dns_servers, config.enabled);
+                        
+                        logSystemEvent('Network config updated', null, 'info', 
+                                     `Interface: ${config.interface_name}`);
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ id: result.lastInsertRowid }));
+                    } catch (err) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: 'Failed to save config' }));
+                    }
                 });
             }
         });
@@ -568,14 +575,18 @@ const routes = {
                 return;
             }
             
-            db.all(`SELECT sl.*, u.username 
-                   FROM system_logs sl 
-                   LEFT JOIN users u ON sl.user_id = u.id 
-                   ORDER BY sl.created_at DESC 
-                   LIMIT 100`, (err, rows) => {
+            try {
+                const rows = db.prepare(`SELECT sl.*, u.username 
+                       FROM system_logs sl 
+                       LEFT JOIN users u ON sl.user_id = u.id 
+                       ORDER BY sl.created_at DESC 
+                       LIMIT 100`).all();
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ logs: rows || [] }));
-            });
+            } catch (err) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Database error' }));
+            }
         });
     },
     
@@ -621,21 +632,19 @@ const routes = {
                 const filename = body.match(/filename="([^"]+)"/)[1];
                 const version = filename.match(/(\d+\.\d+\.\d+)/)?.[1] || '1.0.0';
                 
-                db.run("INSERT INTO firmware_updates (filename, version) VALUES (?, ?)", 
-                       [filename, version], function(err) {
-                    if (err) {
-                        res.writeHead(500);
-                        res.end(JSON.stringify({ error: 'Upload failed' }));
-                    } else {
-                        logSystemEvent('Firmware uploaded', userId, 'info', filename);
-                        res.writeHead(200, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ 
-                            success: true, 
-                            updateId: this.lastID,
-                            version 
-                        }));
-                    }
-                });
+                try {
+                    const result = db.prepare("INSERT INTO firmware_updates (filename, version) VALUES (?, ?)").run(filename, version);
+                    logSystemEvent('Firmware uploaded', userId, 'info', filename);
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ 
+                        success: true, 
+                        updateId: result.lastInsertRowid,
+                        version 
+                    }));
+                } catch (err) {
+                    res.writeHead(500);
+                    res.end(JSON.stringify({ error: 'Upload failed' }));
+                }
             });
         });
     },
@@ -648,11 +657,14 @@ const routes = {
                 return;
             }
             
-            db.get("SELECT * FROM firmware_updates ORDER BY created_at DESC LIMIT 1", 
-                   (err, row) => {
+            try {
+                const row = db.prepare("SELECT * FROM firmware_updates ORDER BY created_at DESC LIMIT 1").get();
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify(row || {}));
-            });
+            } catch (err) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Database error' }));
+            }
         });
     },
     
@@ -665,8 +677,8 @@ const routes = {
             }
             
             if (req.method === 'GET') {
-                db.get("SELECT * FROM update_settings ORDER BY id DESC LIMIT 1", 
-                       (err, row) => {
+                try {
+                    const row = db.prepare("SELECT * FROM update_settings ORDER BY id DESC LIMIT 1").get();
                     if (!row) {
                         // Return default settings if none exist
                         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -681,35 +693,37 @@ const routes = {
                         res.writeHead(200, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify(row));
                     }
-                });
+                } catch (err) {
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Database error' }));
+                }
             } else if (req.method === 'POST') {
                 let body = '';
                 req.on('data', chunk => body += chunk);
                 req.on('end', () => {
                     const settings = JSON.parse(body);
                     
-                    db.run(`INSERT OR REPLACE INTO update_settings 
-                           (id, auto_update_enabled, update_schedule, update_source, 
-                            custom_update_url, auto_reboot_enabled, updated_at) 
-                           VALUES ((SELECT id FROM update_settings LIMIT 1), ?, ?, ?, ?, ?, ?, datetime('now'))`,
-                           [
+                    try {
+                        db.prepare(`INSERT OR REPLACE INTO update_settings 
+                               (id, auto_update_enabled, update_schedule, update_source, 
+                                custom_update_url, auto_reboot_enabled, updated_at) 
+                               VALUES ((SELECT id FROM update_settings LIMIT 1), ?, ?, ?, ?, ?, datetime('now'))`)
+                          .run(
                                settings.auto_update_enabled ? 1 : 0,
                                settings.update_schedule || 'weekly',
                                settings.update_source || 'official',
                                settings.custom_update_url || null,
                                settings.auto_reboot_enabled ? 1 : 0
-                           ], function(err) {
-                        if (err) {
-                            res.writeHead(500);
-                            res.end(JSON.stringify({ error: 'Failed to save settings' }));
-                        } else {
-                            logSystemEvent('Update settings changed', userId, 'info', 
-                                         JSON.stringify(settings));
-                            res.writeHead(200, { 'Content-Type': 'application/json' });
-                            res.end(JSON.stringify({ success: true }));
-
-                        }
-                    });
+                           );
+                        
+                        logSystemEvent('Update settings changed', userId, 'info', 
+                                     JSON.stringify(settings));
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ success: true }));
+                    } catch (err) {
+                        res.writeHead(500);
+                        res.end(JSON.stringify({ error: 'Failed to save settings' }));
+                    }
                 });
             }
         });
@@ -723,11 +737,14 @@ const routes = {
                 return;
             }
             
-            db.all("SELECT * FROM firmware_updates ORDER BY created_at DESC LIMIT 10", 
-                   (err, rows) => {
+            try {
+                const rows = db.prepare("SELECT * FROM firmware_updates ORDER BY created_at DESC LIMIT 10").all();
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ history: rows || [] }));
-            });
+            } catch (err) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Database error' }));
+            }
         });
     },
     

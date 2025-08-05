@@ -257,7 +257,9 @@ async function loadNetworkInterfaces() {
             iface.type.toLowerCase().includes('ethernet') || 
             iface.type.toLowerCase().includes('lan') ||
             iface.name.toLowerCase().includes('eth') ||
-            iface.name.toLowerCase().includes('enp')
+            iface.name.toLowerCase().includes('feth') ||
+            iface.name.toLowerCase().includes('enp') ||
+            iface.name.toLowerCase().includes('en')
         );
         
         const cellularInterfaces = interfaces.filter(iface => 

@@ -7,11 +7,17 @@
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
-  "keywords": ["iot", "gateway", "industrial", "network", "monitoring"],
+  "keywords": [
+    "iot",
+    "gateway",
+    "industrial",
+    "network",
+    "monitoring"
+  ],
   "author": "IoT Gateway Team",
   "license": "MIT",
   "dependencies": {
-    "sqlite3": "^5.1.6"
+    "better-sqlite3": "^8.7.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
